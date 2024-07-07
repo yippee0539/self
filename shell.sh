@@ -237,6 +237,11 @@ serverstatus_config() {
 
         systemctl enable $service_file
         systemctl start $service_file
+	if [ -e "/etc/systemd/system/nezha-agent.service" ]; then
+                systemctl stop nezha-agent.service
+                systemctl disable nezha-agent.service
+        fi
+
 }
 
 openssh_update() {
