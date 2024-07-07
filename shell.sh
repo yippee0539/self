@@ -67,23 +67,6 @@ ssh_config() {
 	echo 'PubkeyAuthentication yes' >> $ssh_path
 	echo 'PasswordAuthentication yes' >> $ssh_path
 	echo 'PermitRootLogin yes' >> $ssh_path
-
-	version=$(ssh -V 2>&1 | sed -n 's/^OpenSSH_\([0-9.]*p[0-9]*\).*$/\1/p')
-	major=$(echo "$version" | cut -d '.' -f 1)
-	minor=$(echo "$version" | cut -d '.' -f 2 | cut -d 'p' -f 1)
-	patch=$(echo "$version" | cut -d 'p' -f 2)
-	min_major=8
-	min_minor=1
-	min_patch=1
-	max_major=9
-	max_minor=8
-	max_patch=1
-
-	if [[ $major -gt $min_major ]] || ([[ $major -eq $min_major ]] && [[ $minor -gt $min_minor ]]) || ([[ $major -eq $min_major ]] && [[ $minor -eq $min_minor ]] && [[ $patch -ge $min_patch ]]); then
-	    if [[ $major -lt $max_major ]] || ([[ $major -eq $max_major ]] && [[ $minor -lt $max_minor ]]) || ([[ $major -eq $max_major ]] && [[ $minor -eq $max_minor ]] && [[ $patch -lt $max_patch ]]); then
-                apt install openssh-server
-	    fi
-	fi
 }
 
 network_algorithm_config() {
@@ -256,6 +239,28 @@ serverstatus_config() {
         systemctl start $service_file
 }
 
+openssh_update() {
+        version=$(ssh -V 2>&1 | sed -n 's/^OpenSSH_\([0-9.]*p[0-9]*\).*$/\1/p')
+        major=$(echo "$version" | cut -d '.' -f 1)
+        minor=$(echo "$version" | cut -d '.' -f 2 | cut -d 'p' -f 1)
+        patch=$(echo "$version" | cut -d 'p' -f 2)
+        min_major=8
+        min_minor=5
+        min_patch=1
+        max_major=9
+        max_minor=8
+        max_patch=1
+
+        if [[ $major -gt $min_major ]] || ([[ $major -eq $min_major ]] && [[ $minor -gt $min_minor ]]) || ([[ $major -eq $min_major ]] && [[ $minor -eq $min_minor ]] && [[ $patch -ge $min_patch ]]); then
+            if [[ $major -lt $max_major ]] || ([[ $major -eq $max_major ]] && [[ $minor -lt $max_minor ]]) || ([[ $major -eq $max_major ]] && [[ $minor -eq $max_minor ]] && [[ $patch -lt $max_patch ]]); then
+                apt install openssh-server
+            fi
+        fi
+}
+
+
+}
+
 menu=$(prompt "菜单
 1.软件源配置
 2.vim 配置
@@ -268,6 +273,7 @@ menu=$(prompt "菜单
 9.oracle_alive 配置
 a.go_naive 配置
 b.添加 servicestatus 监控
+c.openssh 漏洞升级
 0. 全部配置
 ")
 
@@ -284,6 +290,7 @@ b.添加 servicestatus 监控
 		9) oracle_alive_config;;
 		#a) go_naive_config;;
                 b) serverstatus_config;;
+		c) openssh_update;;
 	#	*) ;;
 	esac
 #done
