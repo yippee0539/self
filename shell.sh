@@ -258,9 +258,6 @@ openssh_update() {
         fi
 }
 
-
-}
-
 menu=$(prompt "菜单
 1.软件源配置
 2.vim 配置
