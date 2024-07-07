@@ -1,3 +1,5 @@
+# 8.5p1 <= openssh < 9.8p1
+
 get_suffix() {
 	date +%Y%m%d
 }
@@ -65,6 +67,23 @@ ssh_config() {
 	echo 'PubkeyAuthentication yes' >> $ssh_path
 	echo 'PasswordAuthentication yes' >> $ssh_path
 	echo 'PermitRootLogin yes' >> $ssh_path
+
+	version=$(ssh -V 2>&1 | sed -n 's/^OpenSSH_\([0-9.]*p[0-9]*\).*$/\1/p')
+	major=$(echo "$version" | cut -d '.' -f 1)
+	minor=$(echo "$version" | cut -d '.' -f 2 | cut -d 'p' -f 1)
+	patch=$(echo "$version" | cut -d 'p' -f 2)
+	min_major=8
+	min_minor=1
+	min_patch=1
+	max_major=9
+	max_minor=8
+	max_patch=1
+
+	if [[ $major -gt $min_major ]] || ([[ $major -eq $min_major ]] && [[ $minor -gt $min_minor ]]) || ([[ $major -eq $min_major ]] && [[ $minor -eq $min_minor ]] && [[ $patch -ge $min_patch ]]); then
+	    if [[ $major -lt $max_major ]] || ([[ $major -eq $max_major ]] && [[ $minor -lt $max_minor ]]) || ([[ $major -eq $max_major ]] && [[ $minor -eq $max_minor ]] && [[ $patch -lt $max_patch ]]); then
+                apt install openssh-server
+	    fi
+	fi
 }
 
 network_algorithm_config() {
@@ -195,6 +214,48 @@ go_naive_config() {
 	./caddy start
 }
 
+serverstatus_config() {
+        service_dir=/etc/systemd/system/
+        service_file=serverstatus-client.service
+        if [ -e $service_dir$service_file ]; then
+                systemctl stop $service_file
+                systemctl disable $service_file
+                mv $service_dir$service_file $service_dir$service_file$(get_suffix)
+        fi
+
+        apt install python3
+        user=$(prompt "输入用户名")
+        passwd=$(prompt "输入密码")
+        priority=$(prompt "优先级 4/6")
+        server=$(prompt "服务器地址")
+
+        if [ -e "/home/client-linux.py" ]; then
+                mv /home/client-linux.py /home/client-linux.py$(get_suffix)
+        fi
+
+        curl -sSL https://github.com/cppla/ServerStatus/raw/master/clients/client-linux.py -o /home/client-linux.py
+        sed -i "s/SERVER = \"127.0.0.1\"/SERVER = \"$server\"/g" /home/client-linux.py
+        sed -i "s/USER = \"s01\"/USER = \"$user\"/g" /home/client-linux.py
+        sed -i "s/PASSWORD = \"USER_DEFAULT_PASSWORD\"/PASSWORD = \"$passwd\"/g" /home/client-linux.py
+        sed -i "s/PROBE_PROTOCOL_PREFER = \"ipv4\"/PROBE_PROTOCOL_PREFER = \"ipv$priority\"/g" /home/client-linux.py
+
+        echo '[Unit]' > $service_dir$service_file
+        echo 'Description=serverstatus-client Service' >> $service_dir$service_file
+        echo 'After=network.target' >> $service_dir$service_file
+        echo '' >> $service_dir$service_file
+        echo '[Service]' >> $service_dir$service_file
+        echo 'WorkingDirectory=/home' >> $service_dir$service_file
+        echo 'ExecStart=python3 /home/client-linux.py' >> $service_dir$service_file
+        echo 'Restart=always' >> $service_dir$service_file
+        echo 'User=root' >> $service_dir$service_file
+        echo '' >> $service_dir$service_file
+        echo '[Install]' >> $service_dir$service_file
+        echo 'WantedBy=multi-user.target' >> $service_dir$service_file
+
+        systemctl enable $service_file
+        systemctl start $service_file
+}
+
 menu=$(prompt "菜单
 1.软件源配置
 2.vim 配置
@@ -206,6 +267,7 @@ menu=$(prompt "菜单
 8.iptables 配置
 9.oracle_alive 配置
 a.go_naive 配置
+b.添加 servicestatus 监控
 0. 全部配置
 ")
 
@@ -220,6 +282,8 @@ a.go_naive 配置
 		7) swap_config;;
 		8) iptables_config;;
 		9) oracle_alive_config;;
+		#a) go_naive_config;;
+                b) serverstatus_config;;
 	#	*) ;;
 	esac
 #done
