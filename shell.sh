@@ -241,7 +241,7 @@ serverstatus_config() {
                 systemctl stop nezha-agent.service
                 systemctl disable nezha-agent.service
         fi
-
+	echo systemd-detect-virt
 }
 
 openssh_update() {
